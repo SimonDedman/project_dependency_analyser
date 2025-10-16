@@ -50,7 +50,7 @@
 #' @importFrom igraph graph_from_data_frame V E topo_sort as_edgelist edge_attr_names edge_attr as_data_frame layout_with_sugiyama vcount ecount
 #' @importFrom stringr str_match str_match_all str_split
 #' @importFrom dplyr %>% left_join rename
-#' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text theme_void labs arrow unit ggsave
+#' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text theme_void theme element_rect labs arrow unit ggsave
 #' @importFrom visNetwork visNetwork visEdges visOptions visLayout
 #' @importFrom htmlwidgets saveWidget
 "_PACKAGE"
@@ -882,7 +882,7 @@ visualize_workflow <- function(script_data, graph = NULL) {
     edges$label <- edge_attr(graph, "via_file")
   }
 
-  visNetwork(nodes, edges, width = "100%", height = "600px") %>%
+  visNetwork(nodes, edges, width = "100%", height = "100vh") %>%
     visEdges(arrows = "to") %>%
     visOptions(highlightNearest = TRUE, nodesIdSelection = TRUE) %>%
     visLayout(randomSeed = 42)
@@ -959,6 +959,10 @@ visualize_graph_static <- function(graph) {
     geom_text(data = nodes_df, aes(x = x, y = y, label = name),
               size = 3) +
     theme_void() +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    ) +
     labs(title = "Script Dependency Network")
 }
 
@@ -1466,7 +1470,7 @@ analyze_project_workflow <- function(script_paths = NULL,
   if (save_static_plot && !is.null(graph)) {
     plot <- visualize_graph_static(graph)
     plot_file <- file.path(output_dir, "workflow_graph.png")
-    ggplot2::ggsave(plot_file, plot, width = 12, height = 8, dpi = 300)
+    ggplot2::ggsave(plot_file, plot, width = 12, height = 8, dpi = 300, bg = "white")
     if (verbose) cat("  Static plot saved to:", plot_file, "\n")
   }
 
