@@ -19,7 +19,8 @@ analyze_project_workflow(
 If NULL, automatically finds all scripts in the current project. Default: NULL}
 
 \item{output_dir}{Character. Directory for output files.
-If NULL, uses current working directory. Default: NULL}
+If NULL, creates a "projectDependencyAnalyser" subfolder in the project root.
+Default: NULL}
 
 \item{create_annotations}{Logical. Create annotated script copies?
 Default: TRUE}
@@ -64,12 +65,12 @@ This function performs the complete workflow analysis:
   \item Generates targets pipeline template (optional)
 }
 
-All outputs are saved to the specified output directory (or current directory
-if not specified).
+All outputs are saved to a dedicated subfolder to keep your project organized.
+By default, creates a \code{projectDependencyAnalyser/} folder in your project root.
 }
 \section{Output Files}{
 
-The function creates:
+The function creates these files in \code{projectDependencyAnalyser/} by default:
 \itemize{
   \item \code{workflow_report.txt}: Comprehensive text report
   \item \code{script_io_catalog.csv}: Spreadsheet of all imports/exports

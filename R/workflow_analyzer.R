@@ -1282,7 +1282,8 @@ generate_workflow_report <- function(script_data, graph = NULL, output_file = "w
 #' @param script_paths Character vector. Paths to R scripts to analyze.
 #'   If NULL, automatically finds all scripts in the current project. Default: NULL
 #' @param output_dir Character. Directory for output files.
-#'   If NULL, uses current working directory. Default: NULL
+#'   If NULL, creates a "projectDependencyAnalyser" subfolder in the project root.
+#'   Default: NULL
 #' @param create_annotations Logical. Create annotated script copies?
 #'   Default: TRUE
 #' @param create_targets Logical. Generate _targets.R template?
@@ -1315,11 +1316,11 @@ generate_workflow_report <- function(script_data, graph = NULL, output_file = "w
 #'   \item Generates targets pipeline template (optional)
 #' }
 #'
-#' All outputs are saved to the specified output directory (or current directory
-#' if not specified).
+#' All outputs are saved to a dedicated subfolder to keep your project organized.
+#' By default, creates a \code{projectDependencyAnalyser/} folder in your project root.
 #'
 #' @section Output Files:
-#' The function creates:
+#' The function creates these files in \code{projectDependencyAnalyser/} by default:
 #' \itemize{
 #'   \item \code{workflow_report.txt}: Comprehensive text report
 #'   \item \code{script_io_catalog.csv}: Spreadsheet of all imports/exports
@@ -1367,7 +1368,9 @@ analyze_project_workflow <- function(script_paths = NULL,
 
   # Set up output directory
   if (is.null(output_dir)) {
-    output_dir <- getwd()
+    # Default to projectDependencyAnalyser subfolder in project root
+    project_root <- here::here()
+    output_dir <- file.path(project_root, "projectDependencyAnalyser")
   }
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)

@@ -7,3 +7,4 @@
 ^examples$
 ^docs$
 ^man/README\.md$
+^projectDependencyAnalyser$
