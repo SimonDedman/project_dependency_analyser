@@ -4,11 +4,12 @@
 \alias{analyze_all_scripts}
 \title{Batch analyze all scripts in a project}
 \usage{
-analyze_all_scripts(script_paths, verbose = TRUE)
+analyze_all_scripts(script_paths = NULL, verbose = TRUE)
 }
 \arguments{
 \item{script_paths}{Character vector. Full paths to R scripts to analyze.
-Typically obtained from \code{\link{find_r_scripts}}.}
+If NULL, defaults to \code{find_r_scripts()} to automatically find all
+R scripts in the current project. Default: NULL}
 
 \item{verbose}{Logical. Print progress messages showing which script is
 being analyzed? Default: TRUE}
@@ -31,7 +32,10 @@ for each script. This is the main workhorse function for project-wide analysis.
 }
 \examples{
 \dontrun{
-# Typical workflow
+# Analyze all scripts in current project automatically
+analysis <- analyze_all_scripts()
+
+# Or specify scripts explicitly
 scripts <- find_r_scripts()
 analysis <- analyze_all_scripts(scripts)
 
@@ -40,7 +44,7 @@ analysis[["01_load_data.R"]]$imports
 analysis[["01_load_data.R"]]$exports
 
 # Analyze quietly
-analysis <- analyze_all_scripts(scripts, verbose = FALSE)
+analysis <- analyze_all_scripts(verbose = FALSE)
 }
 
 }

@@ -92,9 +92,11 @@ find_r_scripts <- function(path = NULL,
   pattern <- paste0("\\.(", paste(extensions, collapse = "|"), ")$")
   r_scripts <- list.files(path, pattern = pattern, full.names = TRUE, recursive = recursive)
 
-  # Sort by numeric prefix if present
-  r_scripts <- r_scripts[order(as.numeric(gsub("^.*/([0-9]+)_.*", "\\1", r_scripts)),
-                                na.last = TRUE)]
+  # Sort by numeric prefix if present (suppress warning for non-numbered files)
+  numeric_order <- suppressWarnings(
+    as.numeric(gsub("^.*/([0-9]+)_.*", "\\1", r_scripts))
+  )
+  r_scripts <- r_scripts[order(numeric_order, na.last = TRUE)]
 
   return(r_scripts)
 }
@@ -504,7 +506,8 @@ analyze_exports <- function(script_path) {
 #' for each script. This is the main workhorse function for project-wide analysis.
 #'
 #' @param script_paths Character vector. Full paths to R scripts to analyze.
-#'   Typically obtained from \code{\link{find_r_scripts}}.
+#'   If NULL, defaults to \code{find_r_scripts()} to automatically find all
+#'   R scripts in the current project. Default: NULL
 #' @param verbose Logical. Print progress messages showing which script is
 #'   being analyzed? Default: TRUE
 #'
@@ -521,7 +524,10 @@ analyze_exports <- function(script_path) {
 #'
 #' @examples
 #' \dontrun{
-#' # Typical workflow
+#' # Analyze all scripts in current project automatically
+#' analysis <- analyze_all_scripts()
+#'
+#' # Or specify scripts explicitly
 #' scripts <- find_r_scripts()
 #' analysis <- analyze_all_scripts(scripts)
 #'
@@ -530,14 +536,18 @@ analyze_exports <- function(script_path) {
 #' analysis[["01_load_data.R"]]$exports
 #'
 #' # Analyze quietly
-#' analysis <- analyze_all_scripts(scripts, verbose = FALSE)
+#' analysis <- analyze_all_scripts(verbose = FALSE)
 #' }
 #'
 #' @seealso \code{\link{find_r_scripts}}, \code{\link{analyze_imports}},
 #'   \code{\link{analyze_exports}}, \code{\link{build_dependency_graph}}
 #'
 #' @export
-analyze_all_scripts <- function(script_paths, verbose = TRUE) {
+analyze_all_scripts <- function(script_paths = NULL, verbose = TRUE) {
+  # Default to finding scripts in current project
+  if (is.null(script_paths)) {
+    script_paths <- find_r_scripts()
+  }
   script_data <- list()
 
   for (i in seq_along(script_paths)) {
