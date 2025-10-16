@@ -11,10 +11,28 @@ devtools::install_github("SimonDedman/project_dependency_analyser")
 
 ## Quick Start
 
+**Simple one-line workflow** (recommended):
+
 ```r
 library(projectDependencyAnalyser)
 
-# Analyze your project
+# Analyze your entire project with a single function call!
+analyze_project_workflow()
+```
+
+This automatically:
+- Finds all R scripts in your project
+- Analyzes imports and exports
+- Creates dependency graphs
+- Generates reports and visualizations
+- Saves all outputs to your current directory
+
+**Advanced workflow** (for custom control):
+
+```r
+library(projectDependencyAnalyser)
+
+# Step-by-step analysis
 scripts <- find_r_scripts()
 analysis <- analyze_all_scripts(scripts)
 graph <- build_dependency_graph(analysis)

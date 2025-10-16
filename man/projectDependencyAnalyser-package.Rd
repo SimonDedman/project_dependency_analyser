@@ -22,13 +22,26 @@ Main capabilities:
   \item Targets package conversion
 }
 }
+\section{Quick Start}{
+
+For most users, simply call:
+\preformatted{
+library(projectDependencyAnalyser)
+analyze_project_workflow()  # One function does everything!
+}
+
+This automatically finds scripts, analyzes dependencies, creates visualizations,
+and generates reports.
+}
+
 \section{Main Functions}{
 
 \describe{
+  \item{\code{\link{analyze_project_workflow}}}{**RECOMMENDED** - Complete workflow analysis in one call}
   \item{\code{\link{find_r_scripts}}}{Find all R scripts in a project}
+  \item{\code{\link{analyze_all_scripts}}}{Batch analyze entire project}
   \item{\code{\link{analyze_imports}}}{Detect files imported by a script}
   \item{\code{\link{analyze_exports}}}{Detect files exported by a script}
-  \item{\code{\link{analyze_all_scripts}}}{Batch analyze entire project}
   \item{\code{\link{build_dependency_graph}}}{Create dependency network}
   \item{\code{\link{get_execution_order}}}{Determine optimal script order}
   \item{\code{\link{visualize_workflow}}}{Interactive network visualization}

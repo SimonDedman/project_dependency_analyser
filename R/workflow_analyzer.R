@@ -17,12 +17,23 @@
 #'   \item Targets package conversion
 #' }
 #'
+#' @section Quick Start:
+#' For most users, simply call:
+#' \preformatted{
+#' library(projectDependencyAnalyser)
+#' analyze_project_workflow()  # One function does everything!
+#' }
+#'
+#' This automatically finds scripts, analyzes dependencies, creates visualizations,
+#' and generates reports.
+#'
 #' @section Main Functions:
 #' \describe{
+#'   \item{\code{\link{analyze_project_workflow}}}{**RECOMMENDED** - Complete workflow analysis in one call}
 #'   \item{\code{\link{find_r_scripts}}}{Find all R scripts in a project}
+#'   \item{\code{\link{analyze_all_scripts}}}{Batch analyze entire project}
 #'   \item{\code{\link{analyze_imports}}}{Detect files imported by a script}
 #'   \item{\code{\link{analyze_exports}}}{Detect files exported by a script}
-#'   \item{\code{\link{analyze_all_scripts}}}{Batch analyze entire project}
 #'   \item{\code{\link{build_dependency_graph}}}{Create dependency network}
 #'   \item{\code{\link{get_execution_order}}}{Determine optimal script order}
 #'   \item{\code{\link{visualize_workflow}}}{Interactive network visualization}
@@ -36,11 +47,12 @@
 #' @keywords internal
 #'
 #' @importFrom here here
-#' @importFrom igraph graph_from_data_frame V E topo_sort as_edgelist edge_attr_names edge_attr as_data_frame layout_with_sugiyama
+#' @importFrom igraph graph_from_data_frame V E topo_sort as_edgelist edge_attr_names edge_attr as_data_frame layout_with_sugiyama vcount ecount
 #' @importFrom stringr str_match str_match_all str_split
 #' @importFrom dplyr %>% left_join rename
-#' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text theme_void labs arrow unit
+#' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text theme_void labs arrow unit ggsave
 #' @importFrom visNetwork visNetwork visEdges visOptions visLayout
+#' @importFrom htmlwidgets saveWidget
 "_PACKAGE"
 
 # Declare global variables for R CMD check
@@ -1252,4 +1264,248 @@ generate_workflow_report <- function(script_data, graph = NULL, output_file = "w
 
   # Also print to console
   cat(paste(report, collapse = "\n"))
+
+  invisible(report)
+}
+
+
+# 10. COMPREHENSIVE WORKFLOW WRAPPER ####
+
+#' Analyze project workflow - all-in-one function
+#'
+#' @description
+#' Convenience function that runs the complete workflow analysis in a single call.
+#' Automatically finds scripts, analyzes dependencies, creates visualizations,
+#' generates reports, and optionally creates annotated scripts and targets template.
+#' Designed to be called with no arguments from within an R project.
+#'
+#' @param script_paths Character vector. Paths to R scripts to analyze.
+#'   If NULL, automatically finds all scripts in the current project. Default: NULL
+#' @param output_dir Character. Directory for output files.
+#'   If NULL, uses current working directory. Default: NULL
+#' @param create_annotations Logical. Create annotated script copies?
+#'   Default: TRUE
+#' @param create_targets Logical. Generate _targets.R template?
+#'   Default: TRUE
+#' @param save_visualization Logical. Save interactive HTML visualization?
+#'   Default: TRUE
+#' @param save_static_plot Logical. Save static PNG plot?
+#'   Default: TRUE
+#' @param verbose Logical. Print progress messages? Default: TRUE
+#'
+#' @return Invisibly returns a list containing:
+#'   \itemize{
+#'     \item \code{analysis}: Full analysis results from analyze_all_scripts()
+#'     \item \code{graph}: Dependency graph object
+#'     \item \code{execution_order}: Recommended script execution order
+#'   }
+#'
+#' @details
+#' This function performs the complete workflow analysis:
+#' \enumerate{
+#'   \item Finds all R scripts in the project
+#'   \item Analyzes imports and exports for each script
+#'   \item Builds dependency graph
+#'   \item Determines optimal execution order
+#'   \item Generates comprehensive text report
+#'   \item Creates I/O catalog CSV
+#'   \item Saves interactive HTML visualization (optional)
+#'   \item Saves static PNG plot (optional)
+#'   \item Creates annotated script copies (optional)
+#'   \item Generates targets pipeline template (optional)
+#' }
+#'
+#' All outputs are saved to the specified output directory (or current directory
+#' if not specified).
+#'
+#' @section Output Files:
+#' The function creates:
+#' \itemize{
+#'   \item \code{workflow_report.txt}: Comprehensive text report
+#'   \item \code{script_io_catalog.csv}: Spreadsheet of all imports/exports
+#'   \item \code{workflow_network.html}: Interactive visualization (if enabled)
+#'   \item \code{workflow_graph.png}: Static plot (if enabled)
+#'   \item \code{R_annotated/}: Annotated script copies (if enabled)
+#'   \item \code{_targets.R}: Targets pipeline template (if enabled)
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage - analyze current project with all defaults
+#' analyze_project_workflow()
+#'
+#' # Minimal output - just report and visualization
+#' analyze_project_workflow(
+#'   create_annotations = FALSE,
+#'   create_targets = FALSE,
+#'   save_static_plot = FALSE
+#' )
+#'
+#' # Custom output directory
+#' analyze_project_workflow(output_dir = "workflow_analysis")
+#'
+#' # Analyze specific scripts only
+#' my_scripts <- c("R/01_load.R", "R/02_process.R", "R/03_analyze.R")
+#' analyze_project_workflow(script_paths = my_scripts)
+#'
+#' # Quiet mode
+#' results <- analyze_project_workflow(verbose = FALSE)
+#' print(results$execution_order)
+#' }
+#'
+#' @seealso \code{\link{analyze_all_scripts}}, \code{\link{build_dependency_graph}},
+#'   \code{\link{visualize_workflow}}, \code{\link{generate_workflow_report}}
+#'
+#' @export
+analyze_project_workflow <- function(script_paths = NULL,
+                                      output_dir = NULL,
+                                      create_annotations = TRUE,
+                                      create_targets = TRUE,
+                                      save_visualization = TRUE,
+                                      save_static_plot = TRUE,
+                                      verbose = TRUE) {
+
+  # Set up output directory
+  if (is.null(output_dir)) {
+    output_dir <- getwd()
+  }
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+
+  if (verbose) {
+    cat("\n========================================\n")
+    cat("PROJECT WORKFLOW ANALYSIS\n")
+    cat("========================================\n\n")
+  }
+
+  # Step 1: Find scripts
+  if (verbose) cat("Step 1/7: Finding R scripts...\n")
+  if (is.null(script_paths)) {
+    script_paths <- find_r_scripts()
+  }
+  if (verbose) cat("  Found", length(script_paths), "scripts\n\n")
+
+  # Step 2: Analyze all scripts
+  if (verbose) cat("Step 2/7: Analyzing scripts for imports/exports...\n")
+  analysis <- analyze_all_scripts(script_paths, verbose = verbose)
+  if (verbose) cat("\n")
+
+  # Step 3: Build dependency graph
+  if (verbose) cat("Step 3/7: Building dependency graph...\n")
+  graph <- build_dependency_graph(analysis)
+  if (!is.null(graph)) {
+    if (verbose) {
+      cat("  Graph has", igraph::vcount(graph), "nodes and",
+          igraph::ecount(graph), "edges\n\n")
+    }
+  } else {
+    if (verbose) cat("  No dependencies found between scripts\n\n")
+  }
+
+  # Step 4: Generate text report
+  if (verbose) cat("Step 4/7: Generating workflow report...\n")
+  report_file <- file.path(output_dir, "workflow_report.txt")
+  generate_workflow_report(analysis, graph, output_file = report_file)
+  if (verbose) cat("\n")
+
+  # Step 5: Create I/O catalog
+  if (verbose) cat("Step 5/7: Creating I/O catalog...\n")
+  catalog <- data.frame(
+    script = character(),
+    type = character(),
+    file = character(),
+    stringsAsFactors = FALSE
+  )
+
+  for (script_name in names(analysis)) {
+    script_info <- analysis[[script_name]]
+
+    # Add imports
+    if (length(script_info$imports) > 0) {
+      for (import_file in script_info$imports) {
+        catalog <- rbind(catalog, data.frame(
+          script = script_name,
+          type = "import",
+          file = import_file,
+          stringsAsFactors = FALSE
+        ))
+      }
+    }
+
+    # Add exports
+    if (length(script_info$exports) > 0) {
+      for (export_file in script_info$exports) {
+        catalog <- rbind(catalog, data.frame(
+          script = script_name,
+          type = "export",
+          file = export_file,
+          stringsAsFactors = FALSE
+        ))
+      }
+    }
+  }
+
+  catalog_file <- file.path(output_dir, "script_io_catalog.csv")
+  write.csv(catalog, catalog_file, row.names = FALSE)
+  if (verbose) cat("  I/O catalog saved to:", catalog_file, "\n\n")
+
+  # Step 6: Create visualizations
+  if (verbose) cat("Step 6/7: Creating visualizations...\n")
+
+  if (save_visualization && !is.null(graph)) {
+    viz <- visualize_workflow(analysis, graph)
+    viz_file <- file.path(output_dir, "workflow_network.html")
+    htmlwidgets::saveWidget(viz, viz_file, selfcontained = TRUE)
+    if (verbose) cat("  Interactive visualization saved to:", viz_file, "\n")
+  }
+
+  if (save_static_plot && !is.null(graph)) {
+    plot <- visualize_graph_static(graph)
+    plot_file <- file.path(output_dir, "workflow_graph.png")
+    ggplot2::ggsave(plot_file, plot, width = 12, height = 8, dpi = 300)
+    if (verbose) cat("  Static plot saved to:", plot_file, "\n")
+  }
+
+  if (verbose) cat("\n")
+
+  # Step 7: Optional outputs
+  if (verbose) cat("Step 7/7: Creating optional outputs...\n")
+
+  if (create_annotations) {
+    annotated_dir <- file.path(output_dir, "R_annotated")
+    annotate_scripts(analysis, output_dir = annotated_dir, overwrite = TRUE)
+    if (verbose) cat("  Annotated scripts saved to:", annotated_dir, "\n")
+  }
+
+  if (create_targets) {
+    targets_file <- file.path(output_dir, "_targets.R")
+    convert_to_targets(analysis, output_file = targets_file)
+    if (verbose) cat("  Targets template saved to:", targets_file, "\n")
+  }
+
+  if (verbose) {
+    cat("\n========================================\n")
+    cat("ANALYSIS COMPLETE!\n")
+    cat("========================================\n\n")
+
+    cat("Summary:\n")
+    cat("  Scripts analyzed:", length(analysis), "\n")
+    cat("  Total imports:", sum(sapply(analysis, function(x) length(x$imports))), "\n")
+    cat("  Total exports:", sum(sapply(analysis, function(x) length(x$exports))), "\n")
+    if (!is.null(graph)) {
+      cat("  Dependencies found:", igraph::ecount(graph), "\n")
+    }
+    cat("\nOutput files in:", output_dir, "\n\n")
+  }
+
+  # Get execution order
+  execution_order <- if (!is.null(graph)) get_execution_order(graph) else names(analysis)
+
+  # Return results invisibly
+  invisible(list(
+    analysis = analysis,
+    graph = graph,
+    execution_order = execution_order
+  ))
 }
