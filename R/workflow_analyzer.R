@@ -1,36 +1,81 @@
-#' Workflow Analyzer: Automated R Project Analysis and Targets Conversion
+#' projectDependencyAnalyser: Automated R Project Workflow Analysis
 #'
-#' This script provides comprehensive tools for:
-#' - Cataloguing input/output files for each script
-#' - Determining script execution order
-#' - Creating network visualizations of dependencies
-#' - Annotating scripts with dependency information
-#' - Converting scripts to targets workflow
+#' @description
+#' Comprehensive toolkit for analyzing, documenting, and automating R project
+#' workflows. Automatically catalogs file dependencies, determines script
+#' execution order, creates network visualizations, and converts workflows to
+#' the targets package format.
 #'
-#' @author Simon Dedman
-#' @date 2025-01-16
+#' @details
+#' Main capabilities:
+#' \itemize{
+#'   \item Automated file cataloging (15+ import functions, 10+ export functions)
+#'   \item Dependency analysis and execution order determination
+#'   \item Interactive and static network visualizations
+#'   \item Script annotation with roxygen2-style documentation
+#'   \item Workflow reports and I/O catalogs
+#'   \item Targets package conversion
+#' }
+#'
+#' @section Main Functions:
+#' \describe{
+#'   \item{\code{\link{find_r_scripts}}}{Find all R scripts in a project}
+#'   \item{\code{\link{analyze_imports}}}{Detect files imported by a script}
+#'   \item{\code{\link{analyze_exports}}}{Detect files exported by a script}
+#'   \item{\code{\link{analyze_all_scripts}}}{Batch analyze entire project}
+#'   \item{\code{\link{build_dependency_graph}}}{Create dependency network}
+#'   \item{\code{\link{get_execution_order}}}{Determine optimal script order}
+#'   \item{\code{\link{visualize_workflow}}}{Interactive network visualization}
+#'   \item{\code{\link{visualize_graph_static}}}{Static ggplot2 diagram}
+#'   \item{\code{\link{generate_workflow_report}}}{Comprehensive text report}
+#'   \item{\code{\link{annotate_scripts}}}{Add dependency documentation}
+#'   \item{\code{\link{convert_to_targets}}}{Generate targets pipeline}
+#' }
+#'
+#' @author Simon Dedman \email{simondedman@@gmail.com}
+#' @keywords internal
+#'
+#' @importFrom here here
+#' @importFrom igraph graph_from_data_frame V E topo_sort as_edgelist edge_attr_names edge_attr as_data_frame layout_with_sugiyama
+#' @importFrom stringr str_match str_match_all str_split
+#' @importFrom dplyr %>% left_join rename
+#' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text theme_void labs arrow unit
+#' @importFrom visNetwork visNetwork visEdges visOptions visLayout
+"_PACKAGE"
 
-# Load Required Packages ####
-suppressPackageStartupMessages({
-  library(here)
-  library(igraph)
-  library(stringr)
-  library(dplyr)
-  library(tidyr)
-  library(purrr)
-  library(ggplot2)
-  library(DiagrammeR)
-  library(visNetwork)
-})
+# Declare global variables for R CMD check
+utils::globalVariables(c("x", "y", "name", "x_from", "y_from", "x_to", "y_to"))
 
 # 1. ENHANCED FILE DISCOVERY ####
 
 #' Find all R scripts in a project
 #'
-#' @param path Path to search (defaults to R/ folder in project)
-#' @param extensions File extensions to include
-#' @param recursive Search subdirectories
-#' @return Character vector of file paths
+#' @description
+#' Searches for R scripts, R Markdown, and Quarto files in a project directory.
+#' Automatically detects the project R/ folder or uses the current working
+#' directory. Results are sorted by numeric prefix if present.
+#'
+#' @param path Character. Path to search. If NULL, defaults to the R/ folder
+#'   in the current RStudio project or here::here("R"). Default: NULL
+#' @param extensions Character vector. File extensions to include.
+#'   Default: c("R", "r", "qmd", "Rmd")
+#' @param recursive Logical. Search subdirectories? Default: TRUE
+#'
+#' @return Character vector of full file paths to discovered scripts, sorted by
+#'   numeric prefix if present (e.g., "01_script.R" before "02_script.R")
+#'
+#' @examples
+#' \dontrun{
+#' # Find all R scripts in project
+#' scripts <- find_r_scripts()
+#'
+#' # Search specific directory
+#' scripts <- find_r_scripts("/path/to/scripts")
+#'
+#' # Only R files, not Rmd
+#' scripts <- find_r_scripts(extensions = c("R", "r"))
+#' }
+#'
 #' @export
 find_r_scripts <- function(path = NULL,
                            extensions = c("R", "r", "qmd", "Rmd"),
@@ -59,8 +104,16 @@ find_r_scripts <- function(path = NULL,
 
 #' Extract code from R Markdown / Quarto files
 #'
-#' @param content Character vector of file lines
-#' @return Character vector of R code only
+#' @description
+#' Extracts R code chunks from R Markdown (.Rmd) or Quarto (.qmd) files
+#' by parsing code blocks between triple backticks with r language markers.
+#'
+#' @param content Character vector of file lines from readLines()
+#'
+#' @return Character vector containing only the R code extracted from chunks,
+#'   with empty lines removed
+#'
+#' @keywords internal
 extract_rmd_code <- function(content) {
   content_str <- paste(content, collapse = "\n")
 
@@ -73,10 +126,29 @@ extract_rmd_code <- function(content) {
   return(code_lines[code_lines != ""])
 }
 
-#' Analyze file import calls in a script
+#' Analyze file import calls in a script (enhanced)
 #'
-#' @param script_content Character vector of script lines
-#' @return Character vector of imported file paths
+#' @description
+#' Detects file import operations using pattern matching for 15+ different
+#' import functions from base R, readr, readxl, data.table, haven, and more.
+#' Handles here::here() paths and various quote styles.
+#'
+#' @param script_content Character vector of script lines from readLines()
+#'
+#' @return Character vector of unique imported file paths detected in the script
+#'
+#' @details
+#' Detected functions include:
+#' \itemize{
+#'   \item Base R: read.csv(), read.table(), readRDS(), load(), source()
+#'   \item readr: read_csv(), read_tsv(), read_delim()
+#'   \item readxl: read_excel()
+#'   \item data.table: fread()
+#'   \item haven: read_dta(), read_sav(), read_sas()
+#'   \item And more...
+#' }
+#'
+#' @keywords internal
 analyze_imports_enhanced <- function(script_content) {
   imported_files <- character()
 
@@ -139,8 +211,15 @@ analyze_imports_enhanced <- function(script_content) {
 
 #' Extract path from here() call
 #'
-#' @param line Line of code containing here()
-#' @return Resolved file path
+#' @description
+#' Parses and resolves file paths from here::here() calls by extracting
+#' arguments and reconstructing the full path.
+#'
+#' @param line Character. Single line of code containing a here() call
+#'
+#' @return Character string with resolved file path, or NULL if parsing fails
+#'
+#' @keywords internal
 extract_here_path <- function(line) {
   # Extract arguments from here()
   here_match <- str_match(line, "here\\(([^\\)]+)\\)")
@@ -160,8 +239,15 @@ extract_here_path <- function(line) {
 
 #' Clean file path string
 #'
-#' @param path Raw file path
-#' @return Cleaned file path
+#' @description
+#' Removes quotes, whitespace, and trailing arguments from file path strings
+#' extracted from function calls.
+#'
+#' @param path Character. Raw file path string from regex extraction
+#'
+#' @return Character string with cleaned file path
+#'
+#' @keywords internal
 clean_file_path <- function(path) {
   path <- trimws(path)
   path <- gsub('["\']', "", path)
@@ -169,10 +255,47 @@ clean_file_path <- function(path) {
   return(path)
 }
 
-#' Main import analysis function
+#' Analyze file imports in an R script
 #'
-#' @param script_path Path to R script
-#' @return Character vector of imported files
+#' @description
+#' Main function to detect all file import operations in an R script. Automatically
+#' handles .R, .Rmd, and .qmd files. Detects 15+ import functions including
+#' read.csv(), readRDS(), load(), read_excel(), fread(), and more.
+#'
+#' @param script_path Character. Full path to the R script to analyze
+#'
+#' @return Character vector of unique file paths that are imported by the script.
+#'   Returns empty character(0) if no imports found or file doesn't exist.
+#'
+#' @details
+#' This function:
+#' \itemize{
+#'   \item Reads the script file
+#'   \item Extracts R code from Rmd/qmd files if needed
+#'   \item Detects import function calls using pattern matching
+#'   \item Resolves here::here() paths
+#'   \item Filters out invalid or malformed paths
+#'   \item Returns unique file paths
+#' }
+#'
+#' Supported import functions include base R (read.csv, readRDS, load, source),
+#' readr (read_csv, read_tsv), readxl (read_excel), data.table (fread),
+#' haven (read_dta, read_sav), and more.
+#'
+#' @examples
+#' \dontrun{
+#' # Analyze imports for a single script
+#' imports <- analyze_imports("R/01_load_data.R")
+#' print(imports)
+#'
+#' # Check if specific file is imported
+#' if ("data/raw_data.csv" %in% imports) {
+#'   cat("Script imports raw_data.csv\n")
+#' }
+#' }
+#'
+#' @seealso \code{\link{analyze_exports}}, \code{\link{analyze_all_scripts}}
+#'
 #' @export
 analyze_imports <- function(script_path) {
   if (!file.exists(script_path)) {
@@ -200,10 +323,28 @@ analyze_imports <- function(script_path) {
 
 # 3. ENHANCED EXPORT ANALYSIS ####
 
-#' Analyze file export calls in a script
+#' Analyze file export calls in a script (enhanced)
 #'
-#' @param script_content Character vector of script lines
-#' @return Character vector of exported file paths
+#' @description
+#' Detects file export operations using pattern matching for 10+ different
+#' export functions from base R, readr, ggplot2, data.table, writexl, and more.
+#' Handles here::here() paths and various quote styles.
+#'
+#' @param script_content Character vector of script lines from readLines()
+#'
+#' @return Character vector of unique exported file paths detected in the script
+#'
+#' @details
+#' Detected functions include:
+#' \itemize{
+#'   \item Base R: write.csv(), write.table(), saveRDS(), save()
+#'   \item readr: write_csv(), write_tsv(), write_delim()
+#'   \item ggplot2: ggsave()
+#'   \item data.table: fwrite()
+#'   \item writexl: write_xlsx()
+#' }
+#'
+#' @keywords internal
 analyze_exports_enhanced <- function(script_content) {
   exported_files <- character()
 
@@ -264,8 +405,15 @@ analyze_exports_enhanced <- function(script_content) {
 
 #' Clean export file path
 #'
-#' @param path Raw file path from export call
-#' @return Cleaned file path
+#' @description
+#' Removes quotes, whitespace, parentheses, and simplifies paste() calls
+#' from file path strings extracted from export function calls.
+#'
+#' @param path Character. Raw file path string from regex extraction
+#'
+#' @return Character string with cleaned file path
+#'
+#' @keywords internal
 clean_export_path <- function(path) {
   path <- trimws(path)
   path <- gsub('["\']', "", path)
@@ -282,10 +430,47 @@ clean_export_path <- function(path) {
   return(path)
 }
 
-#' Main export analysis function
+#' Analyze file exports in an R script
 #'
-#' @param script_path Path to R script
-#' @return Character vector of exported files
+#' @description
+#' Main function to detect all file export operations in an R script. Automatically
+#' handles .R, .Rmd, and .qmd files. Detects 10+ export functions including
+#' write.csv(), saveRDS(), ggsave(), fwrite(), and more.
+#'
+#' @param script_path Character. Full path to the R script to analyze
+#'
+#' @return Character vector of unique file paths that are exported by the script.
+#'   Returns empty character(0) if no exports found or file doesn't exist.
+#'
+#' @details
+#' This function:
+#' \itemize{
+#'   \item Reads the script file
+#'   \item Extracts R code from Rmd/qmd files if needed
+#'   \item Detects export function calls using pattern matching
+#'   \item Resolves here::here() paths
+#'   \item Filters out invalid or malformed paths
+#'   \item Returns unique file paths
+#' }
+#'
+#' Supported export functions include base R (write.csv, saveRDS, save),
+#' readr (write_csv, write_tsv), ggplot2 (ggsave), data.table (fwrite),
+#' writexl (write_xlsx), and more.
+#'
+#' @examples
+#' \dontrun{
+#' # Analyze exports for a single script
+#' exports <- analyze_exports("R/03_process_data.R")
+#' print(exports)
+#'
+#' # Check if specific file is exported
+#' if ("results/processed_data.RDS" %in% exports) {
+#'   cat("Script exports processed_data.RDS\n")
+#' }
+#' }
+#'
+#' @seealso \code{\link{analyze_imports}}, \code{\link{analyze_all_scripts}}
+#'
 #' @export
 analyze_exports <- function(script_path) {
   if (!file.exists(script_path)) {
@@ -312,11 +497,45 @@ analyze_exports <- function(script_path) {
 
 # 4. COMPREHENSIVE SCRIPT ANALYSIS ####
 
-#' Analyze all scripts in a project
+#' Batch analyze all scripts in a project
 #'
-#' @param script_paths Character vector of script paths
-#' @param verbose Print progress messages
-#' @return List containing script metadata and dependencies
+#' @description
+#' Analyzes multiple R scripts at once, detecting imports, exports, and metadata
+#' for each script. This is the main workhorse function for project-wide analysis.
+#'
+#' @param script_paths Character vector. Full paths to R scripts to analyze.
+#'   Typically obtained from \code{\link{find_r_scripts}}.
+#' @param verbose Logical. Print progress messages showing which script is
+#'   being analyzed? Default: TRUE
+#'
+#' @return Named list where each element is a script's analysis results. Each
+#'   script's entry contains:
+#'   \itemize{
+#'     \item \code{path}: Full path to the script file
+#'     \item \code{name}: Basename of the script
+#'     \item \code{imports}: Character vector of imported file paths
+#'     \item \code{exports}: Character vector of exported file paths
+#'     \item \code{metadata}: List with title, author, date, description
+#'     \item \code{order}: Numeric prefix from filename (NA if none)
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' # Typical workflow
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#'
+#' # Access specific script's data
+#' analysis[["01_load_data.R"]]$imports
+#' analysis[["01_load_data.R"]]$exports
+#'
+#' # Analyze quietly
+#' analysis <- analyze_all_scripts(scripts, verbose = FALSE)
+#' }
+#'
+#' @seealso \code{\link{find_r_scripts}}, \code{\link{analyze_imports}},
+#'   \code{\link{analyze_exports}}, \code{\link{build_dependency_graph}}
+#'
 #' @export
 analyze_all_scripts <- function(script_paths, verbose = TRUE) {
   script_data <- list()
@@ -350,8 +569,16 @@ analyze_all_scripts <- function(script_paths, verbose = TRUE) {
 
 #' Extract metadata from script
 #'
-#' @param script_path Path to script
-#' @return List of metadata
+#' @description
+#' Reads the first 50 lines of a script to extract roxygen2-style metadata
+#' including title, author, and date information.
+#'
+#' @param script_path Character. Full path to the script file
+#'
+#' @return Named list with elements: title, author, date, description.
+#'   Elements will be NA if not found in the script.
+#'
+#' @keywords internal
 extract_script_metadata <- function(script_path) {
   content <- readLines(script_path, warn = FALSE, n = 50)
 
@@ -389,8 +616,15 @@ extract_script_metadata <- function(script_path) {
 
 #' Extract numeric prefix from filename
 #'
-#' @param filename Filename
-#' @return Numeric prefix or NA
+#' @description
+#' Extracts leading numeric prefix from filenames like "01_script.R" or "10_analysis.R".
+#' Used for sorting scripts in execution order.
+#'
+#' @param filename Character. Filename (not full path)
+#'
+#' @return Numeric value of the prefix, or NA if no numeric prefix found
+#'
+#' @keywords internal
 extract_numeric_prefix <- function(filename) {
   match <- str_match(filename, "^([0-9]+)_")
   if (!is.na(match[1, 2])) {
@@ -404,8 +638,45 @@ extract_numeric_prefix <- function(filename) {
 
 #' Build dependency graph from script analysis
 #'
-#' @param script_data List from analyze_all_scripts()
-#' @return igraph object
+#' @description
+#' Creates a directed graph (igraph object) representing dependencies between
+#' scripts. An edge from script A to script B means B depends on output from A
+#' (i.e., A exports a file that B imports).
+#'
+#' @param script_data Named list. Output from \code{\link{analyze_all_scripts}}.
+#'   Must contain imports and exports for each script.
+#'
+#' @return An igraph directed graph object with:
+#'   \itemize{
+#'     \item Vertices representing scripts
+#'     \item Edges representing dependencies (A → B means B needs A's output)
+#'     \item Edge attributes including via_file (the file that creates the dependency)
+#'   }
+#'   Returns NULL if no dependencies are found.
+#'
+#' @details
+#' The function compares each script's exports against all other scripts' imports.
+#' A dependency is created when:
+#' \itemize{
+#'   \item File paths match exactly, or
+#'   \item An import path contains an export filename (handles path variations)
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Build dependency graph
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#' graph <- build_dependency_graph(analysis)
+#'
+#' # Inspect graph
+#' igraph::vcount(graph)  # Number of scripts
+#' igraph::ecount(graph)  # Number of dependencies
+#' }
+#'
+#' @seealso \code{\link{analyze_all_scripts}}, \code{\link{get_execution_order}},
+#'   \code{\link{visualize_workflow}}
+#'
 #' @export
 build_dependency_graph <- function(script_data) {
   edges <- data.frame(
@@ -456,10 +727,41 @@ build_dependency_graph <- function(script_data) {
   }
 }
 
-#' Get execution order from dependency graph
+#' Get optimal script execution order
 #'
-#' @param graph igraph object from build_dependency_graph()
-#' @return Character vector of script names in execution order
+#' @description
+#' Determines the order in which scripts should be executed based on their
+#' dependencies using topological sorting. Scripts with no dependencies come first,
+#' followed by scripts that depend on them.
+#'
+#' @param graph An igraph object from \code{\link{build_dependency_graph}}
+#'
+#' @return Character vector of script names in execution order (dependencies first).
+#'   Returns empty character(0) if graph is NULL. If a cycle is detected (circular
+#'   dependencies), returns scripts in their original vertex order with a warning.
+#'
+#' @details
+#' Uses igraph's topological sort algorithm. A topological sort orders vertices
+#' such that for every directed edge from A to B, A comes before B in the ordering.
+#' This ensures scripts run after their dependencies.
+#'
+#' @examples
+#' \dontrun{
+#' # Get execution order
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#' graph <- build_dependency_graph(analysis)
+#' order <- get_execution_order(graph)
+#'
+#' # Run scripts in order
+#' for (script in order) {
+#'   cat("Running:", script, "\n")
+#'   source(analysis[[script]]$path)
+#' }
+#' }
+#'
+#' @seealso \code{\link{build_dependency_graph}}
+#'
 #' @export
 get_execution_order <- function(graph) {
   if (is.null(graph)) {
@@ -478,11 +780,45 @@ get_execution_order <- function(graph) {
 
 # 6. VISUALIZATION ####
 
-#' Create interactive network visualization
+#' Create interactive network visualization of workflow
 #'
-#' @param script_data List from analyze_all_scripts()
-#' @param graph igraph object from build_dependency_graph()
-#' @return visNetwork object
+#' @description
+#' Generates an interactive HTML visualization of script dependencies using
+#' visNetwork. Users can click, drag, zoom, and hover over nodes and edges
+#' to explore the workflow interactively.
+#'
+#' @param script_data Named list. Output from \code{\link{analyze_all_scripts}}
+#' @param graph igraph object from \code{\link{build_dependency_graph}}.
+#'   If NULL, will be created automatically from script_data. Default: NULL
+#'
+#' @return A visNetwork object that displays interactively in RStudio Viewer
+#'   or can be saved to HTML using htmlwidgets::saveWidget()
+#'
+#' @details
+#' The visualization includes:
+#' \itemize{
+#'   \item Nodes sized by number of imports/exports
+#'   \item Colors representing different script groups
+#'   \item Tooltips showing script metadata
+#'   \item Interactive physics simulation
+#'   \item Click-and-drag node repositioning
+#'   \item Zoom and pan controls
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Create interactive visualization
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#' viz <- visualize_workflow(analysis)
+#' viz  # Display in viewer
+#'
+#' # Save to HTML file
+#' htmlwidgets::saveWidget(viz, "workflow_network.html")
+#' }
+#'
+#' @seealso \code{\link{visualize_graph_static}}, \code{\link{build_dependency_graph}}
+#'
 #' @export
 visualize_workflow <- function(script_data, graph = NULL) {
   if (is.null(graph)) {
@@ -530,10 +866,41 @@ visualize_workflow <- function(script_data, graph = NULL) {
     visLayout(randomSeed = 42)
 }
 
-#' Create static ggplot2 visualization
+#' Create static ggplot2 visualization of dependency graph
 #'
-#' @param graph igraph object
-#' @return ggplot object
+#' @description
+#' Generates a publication-quality static plot of the dependency graph using
+#' ggplot2. Uses hierarchical Sugiyama layout optimized for directed graphs.
+#'
+#' @param graph An igraph object from \code{\link{build_dependency_graph}}
+#'
+#' @return A ggplot object that can be displayed, saved, or further customized.
+#'   Returns NULL if graph is NULL.
+#'
+#' @details
+#' Creates a layered hierarchical layout where:
+#' \itemize{
+#'   \item Scripts with no dependencies appear at the top
+#'   \item Dependent scripts appear below
+#'   \item Arrows show dependency direction (top to bottom)
+#'   \item Node labels use script names
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Create static plot
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#' graph <- build_dependency_graph(analysis)
+#' plot <- visualize_graph_static(graph)
+#' print(plot)
+#'
+#' # Save to file
+#' ggsave("workflow_graph.png", plot, width = 12, height = 8)
+#' }
+#'
+#' @seealso \code{\link{visualize_workflow}}, \code{\link{build_dependency_graph}}
+#'
 #' @export
 visualize_graph_static <- function(graph) {
   if (is.null(graph)) {
@@ -578,9 +945,17 @@ visualize_graph_static <- function(graph) {
 
 #' Generate roxygen-style documentation for a script
 #'
-#' @param script_name Name of the script
-#' @param script_info Script information from script_data
-#' @return Character vector of documentation lines
+#' @description
+#' Creates roxygen2-style header comments documenting a script's imports and exports.
+#' Used internally by \code{\link{annotate_scripts}}.
+#'
+#' @param script_name Character. Name of the script
+#' @param script_info List. Script information from script_data containing
+#'   metadata, imports, and exports
+#'
+#' @return Character vector of documentation lines in roxygen2 format
+#'
+#' @keywords internal
 generate_script_docs <- function(script_name, script_info) {
   docs <- c(
     "#' @title ", script_info$metadata$title,
@@ -607,11 +982,49 @@ generate_script_docs <- function(script_name, script_info) {
   return(docs)
 }
 
-#' Annotate all scripts with dependency information
+#' Annotate scripts with dependency documentation
 #'
-#' @param script_data List from analyze_all_scripts()
-#' @param output_dir Directory to save annotated scripts
-#' @param overwrite Overwrite existing files
+#' @description
+#' Creates copies of scripts with added roxygen2-style header documentation
+#' listing all imported and exported files. Preserves original code while adding
+#' useful dependency information at the top.
+#'
+#' @param script_data Named list. Output from \code{\link{analyze_all_scripts}}
+#' @param output_dir Character. Directory to save annotated scripts.
+#'   Default: "R_annotated" in project root (via here::here())
+#' @param overwrite Logical. Overwrite existing annotated files?
+#'   Default: FALSE (skips existing files)
+#'
+#' @return Invisibly returns NULL. Creates annotated script files as a side effect.
+#'
+#' @details
+#' For each script, creates a new file with:
+#' \itemize{
+#'   \item Roxygen2-style header with title, author, date
+#'   \item @section Imports: listing all imported files
+#'   \item @section Exports: listing all exported files
+#'   \item Original script content (unchanged)
+#' }
+#'
+#' Files are saved to output_dir with their original names. Original scripts
+#' are never modified.
+#'
+#' @examples
+#' \dontrun{
+#' # Annotate all scripts
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#' annotate_scripts(analysis)
+#'
+#' # Use custom output directory
+#' annotate_scripts(analysis, output_dir = "documented_scripts")
+#'
+#' # Overwrite existing annotated files
+#' annotate_scripts(analysis, overwrite = TRUE)
+#' }
+#'
+#' @seealso \code{\link{analyze_all_scripts}}
+#'
 #' @export
 annotate_scripts <- function(script_data, output_dir = NULL, overwrite = FALSE) {
   if (is.null(output_dir)) {
@@ -642,10 +1055,50 @@ annotate_scripts <- function(script_data, output_dir = NULL, overwrite = FALSE) 
 
 # 8. TARGETS CONVERSION ####
 
-#' Convert script workflow to targets pipeline
+#' Convert workflow to targets pipeline template
 #'
-#' @param script_data List from analyze_all_scripts()
-#' @param output_file Path to save _targets.R file
+#' @description
+#' Generates a _targets.R file template for automating the workflow using the
+#' targets package. Creates target definitions for each script with proper
+#' dependency tracking. Requires manual conversion of scripts to functions.
+#'
+#' @param script_data Named list. Output from \code{\link{analyze_all_scripts}}
+#' @param output_file Character. Path to save the _targets.R file.
+#'   Default: "_targets.R" in project root
+#'
+#' @return Invisibly returns NULL. Creates _targets.R file as a side effect.
+#'
+#' @details
+#' Generates a targets pipeline template that:
+#' \itemize{
+#'   \item Defines targets for each script
+#'   \item Maintains dependency order
+#'   \item Includes commented instructions
+#'   \item Sets up common packages and options
+#' }
+#'
+#' Note: This creates a TEMPLATE. You must:
+#' \enumerate{
+#'   \item Convert your scripts into functions
+#'   \item Update target definitions to call those functions
+#'   \item Adjust package dependencies as needed
+#'   \item Test the pipeline with tar_make()
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Generate targets template
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#' convert_to_targets(analysis)
+#'
+#' # Then manually edit _targets.R and run:
+#' library(targets)
+#' tar_make()
+#' }
+#'
+#' @seealso \code{\link{analyze_all_scripts}}
+#'
 #' @export
 convert_to_targets <- function(script_data, output_file = "_targets.R") {
   targets_code <- c(
@@ -696,11 +1149,53 @@ convert_to_targets <- function(script_data, output_file = "_targets.R") {
 
 # 9. SUMMARY REPORT ####
 
-#' Generate workflow summary report
+#' Generate comprehensive workflow report
 #'
-#' @param script_data List from analyze_all_scripts()
-#' @param graph igraph object
-#' @param output_file Path to save report
+#' @description
+#' Creates a detailed text report summarizing the entire workflow analysis including
+#' script summaries, execution order, dependencies, and I/O catalog.
+#'
+#' @param script_data Named list. Output from \code{\link{analyze_all_scripts}}
+#' @param graph igraph object from \code{\link{build_dependency_graph}}.
+#'   If NULL, will be created automatically. Default: NULL
+#' @param output_file Character. Path to save the report text file.
+#'   Default: "workflow_report.txt" in current directory
+#'
+#' @return Invisibly returns the report text as a character vector.
+#'   Creates report file as a side effect.
+#'
+#' @details
+#' The report includes:
+#' \itemize{
+#'   \item Summary of total scripts analyzed
+#'   \item Detailed list of each script's imports and exports
+#'   \item Recommended execution order
+#'   \item Dependency relationships
+#'   \item Statistics on files and dependencies
+#' }
+#'
+#' Output is a plain text file that can be:
+#' \itemize{
+#'   \item Shared with collaborators
+#'   \item Included in project documentation
+#'   \item Version controlled with git
+#'   \item Used for project planning
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Generate comprehensive report
+#' scripts <- find_r_scripts()
+#' analysis <- analyze_all_scripts(scripts)
+#' graph <- build_dependency_graph(analysis)
+#' generate_workflow_report(analysis, graph)
+#'
+#' # Custom output location
+#' generate_workflow_report(analysis, graph, "docs/workflow_analysis.txt")
+#' }
+#'
+#' @seealso \code{\link{analyze_all_scripts}}, \code{\link{build_dependency_graph}}
+#'
 #' @export
 generate_workflow_report <- function(script_data, graph = NULL, output_file = "workflow_report.txt") {
   report <- c(

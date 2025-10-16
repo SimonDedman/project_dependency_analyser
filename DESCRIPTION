@@ -16,15 +16,16 @@ Imports:
     igraph,
     stringr,
     dplyr,
-    tidyr,
-    purrr,
     ggplot2,
-    DiagrammeR,
     visNetwork
 Suggests:
     targets,
     tarchetypes,
-    testthat (>= 3.0.0)
-RoxygenNote: 7.2.0
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    rstudioapi
+VignetteBuilder: knitr
+RoxygenNote: 7.3.3
 URL: https://github.com/SimonDedman/project_dependency_analyser
 BugReports: https://github.com/SimonDedman/project_dependency_analyser/issues

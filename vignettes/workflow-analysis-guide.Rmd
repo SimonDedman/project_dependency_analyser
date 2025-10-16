@@ -1,0 +1,477 @@
+---
+title: "Workflow Analysis Guide"
+author: "Simon Dedman"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Workflow Analysis Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Introduction
+
+The `projectDependencyAnalyser` package provides comprehensive tools for analyzing, documenting, and automating R project workflows. This vignette demonstrates how to use the package to understand and improve your R project structure.
+
+## Key Features
+
+- **Automated File Cataloging**: Detects 15+ import functions and 10+ export functions
+- **Dependency Analysis**: Builds directed graphs and determines execution order
+- **Interactive Visualization**: Explore workflows with visNetwork
+- **Static Plots**: Publication-quality diagrams with ggplot2
+- **Script Annotation**: Auto-generate roxygen2-style documentation
+- **Workflow Reports**: Comprehensive text summaries
+- **Targets Conversion**: Generate automated pipeline templates
+
+# Quick Start
+
+## Installation
+
+```{r install}
+# Install from GitHub
+devtools::install_github("SimonDedman/project_dependency_analyser")
+```
+
+## Basic Workflow
+
+```{r basic-workflow}
+library(projectDependencyAnalyser)
+
+# 1. Find all R scripts in your project
+scripts <- find_r_scripts()
+
+# 2. Analyze all scripts
+analysis <- analyze_all_scripts(scripts)
+
+# 3. Build dependency graph
+graph <- build_dependency_graph(analysis)
+
+# 4. Visualize workflow
+visualize_workflow(analysis, graph)
+
+# 5. Generate comprehensive report
+generate_workflow_report(analysis, graph)
+```
+
+# Detailed Usage
+
+## Finding Scripts
+
+The `find_r_scripts()` function locates all R scripts in your project:
+
+```{r find-scripts}
+# Find scripts in default R/ directory
+scripts <- find_r_scripts()
+
+# Search specific directory
+scripts <- find_r_scripts("/path/to/scripts")
+
+# Include only .R files (exclude .Rmd)
+scripts <- find_r_scripts(extensions = c("R", "r"))
+
+# Search non-recursively (current directory only)
+scripts <- find_r_scripts(recursive = FALSE)
+```
+
+## Analyzing Scripts
+
+### Analyze Individual Scripts
+
+```{r analyze-individual}
+# Analyze imports for one script
+imports <- analyze_imports("R/01_load_data.R")
+print(imports)
+
+# Analyze exports for one script
+exports <- analyze_exports("R/03_process_data.R")
+print(exports)
+```
+
+### Batch Analysis
+
+```{r batch-analysis}
+# Analyze all scripts at once
+scripts <- find_r_scripts()
+analysis <- analyze_all_scripts(scripts, verbose = TRUE)
+
+# Access specific script's data
+analysis[["01_load_data.R"]]$imports
+analysis[["01_load_data.R"]]$exports
+analysis[["01_load_data.R"]]$metadata
+```
+
+The analysis returns a list for each script containing:
+
+- `path`: Full path to the script file
+- `name`: Basename of the script
+- `imports`: Character vector of imported file paths
+- `exports`: Character vector of exported file paths
+- `metadata`: List with title, author, date, description
+- `order`: Numeric prefix from filename (NA if none)
+
+## Building Dependency Graphs
+
+```{r dependency-graph}
+# Build directed graph of dependencies
+graph <- build_dependency_graph(analysis)
+
+# Inspect graph properties
+igraph::vcount(graph)  # Number of scripts (vertices)
+igraph::ecount(graph)  # Number of dependencies (edges)
+
+# Get execution order
+order <- get_execution_order(graph)
+print(order)
+```
+
+The dependency graph is a directed graph where:
+
+- **Vertices** represent scripts
+- **Edges** represent dependencies (A → B means B depends on output from A)
+- **Edge attributes** include the file that creates the dependency
+
+## Visualization
+
+### Interactive Visualization
+
+```{r interactive-viz}
+# Create interactive HTML visualization
+viz <- visualize_workflow(analysis, graph)
+viz  # Display in RStudio Viewer
+
+# Save to HTML file
+htmlwidgets::saveWidget(viz, "workflow_network.html")
+```
+
+Features of interactive visualization:
+
+- Click and drag nodes to reposition
+- Hover over nodes to see script details
+- Zoom and pan to explore large workflows
+- Highlight nearest neighbors
+- Node selection dropdown
+
+### Static Visualization
+
+```{r static-viz}
+# Create publication-quality static plot
+plot <- visualize_graph_static(graph)
+print(plot)
+
+# Save to file
+ggsave("workflow_graph.png", plot, width = 12, height = 8, dpi = 300)
+```
+
+The static plot uses hierarchical Sugiyama layout optimized for directed graphs.
+
+## Generating Reports
+
+```{r generate-report}
+# Generate comprehensive text report
+generate_workflow_report(analysis, graph, output_file = "workflow_report.txt")
+
+# The report includes:
+# - Summary of total scripts analyzed
+# - Detailed list of each script's imports and exports
+# - Recommended execution order
+# - Dependency relationships
+```
+
+## Annotating Scripts
+
+```{r annotate-scripts}
+# Create annotated copies of all scripts
+annotate_scripts(analysis)
+
+# Use custom output directory
+annotate_scripts(analysis, output_dir = "documented_scripts")
+
+# Overwrite existing annotated files
+annotate_scripts(analysis, overwrite = TRUE)
+```
+
+Annotated scripts include roxygen2-style headers with:
+
+- Script metadata (title, author, date)
+- List of all imported files
+- List of all exported files
+- Original script content (unchanged)
+
+## Converting to Targets
+
+```{r convert-targets}
+# Generate targets pipeline template
+convert_to_targets(analysis, output_file = "_targets.R")
+
+# Then manually:
+# 1. Convert scripts to functions
+# 2. Update target definitions
+# 3. Test pipeline
+library(targets)
+tar_make()
+```
+
+The generated `_targets.R` file is a **template** that requires manual customization.
+
+# Practical Examples
+
+## Example 1: Document Your Workflow
+
+```{r example-1}
+library(projectDependencyAnalyser)
+
+# Complete workflow documentation
+scripts <- find_r_scripts()
+analysis <- analyze_all_scripts(scripts)
+graph <- build_dependency_graph(analysis)
+
+# Generate all outputs
+generate_workflow_report(analysis, graph)
+visualize_workflow(analysis, graph)
+annotate_scripts(analysis)
+
+# Results:
+# - workflow_report.txt: Comprehensive text summary
+# - Interactive HTML visualization in viewer
+# - R_annotated/: Documented script copies
+```
+
+## Example 2: Find Script Dependencies
+
+```{r example-2}
+# What files does script X need?
+analysis <- analyze_all_scripts(find_r_scripts())
+script_name <- "10_DAG-TD-Atolls.R"
+cat("Required files for", script_name, ":\n")
+print(analysis[[script_name]]$imports)
+
+# What creates file Y?
+target_file <- "ch4_reef_wide_df2.RData"
+for (script in names(analysis)) {
+  if (any(grepl(target_file, analysis[[script]]$exports))) {
+    cat("Created by:", script, "\n")
+  }
+}
+```
+
+## Example 3: Validate Workflow
+
+```{r example-3}
+# Check for missing files
+analysis <- analyze_all_scripts(find_r_scripts())
+
+missing_files <- data.frame(
+  script = character(),
+  missing_file = character(),
+  stringsAsFactors = FALSE
+)
+
+for (script_name in names(analysis)) {
+  for (file in analysis[[script_name]]$imports) {
+    if (!file.exists(file)) {
+      missing_files <- rbind(missing_files, data.frame(
+        script = script_name,
+        missing_file = file,
+        stringsAsFactors = FALSE
+      ))
+    }
+  }
+}
+
+if (nrow(missing_files) > 0) {
+  print(missing_files)
+} else {
+  cat("All imported files exist!\n")
+}
+```
+
+## Example 4: Run Scripts in Order
+
+```{r example-4}
+# Get optimal execution order and run scripts
+analysis <- analyze_all_scripts(find_r_scripts())
+graph <- build_dependency_graph(analysis)
+order <- get_execution_order(graph)
+
+# Run scripts in dependency order
+for (script in order) {
+  cat("Running:", script, "\n")
+  source(analysis[[script]]$path)
+  cat("Completed:", script, "\n\n")
+}
+```
+
+# Supported Functions
+
+## Import Functions (15+)
+
+The package automatically detects these import functions:
+
+**Base R:**
+- `read.csv()`, `read.table()`, `read.delim()`
+- `readRDS()`, `load()`
+- `source()`
+
+**readr package:**
+- `read_csv()`, `read_tsv()`, `read_delim()`
+
+**readxl package:**
+- `read_excel()`
+
+**data.table package:**
+- `fread()`
+
+**haven package:**
+- `read_dta()`, `read_sav()`, `read_sas()`
+
+**And more...**
+
+## Export Functions (10+)
+
+The package automatically detects these export functions:
+
+**Base R:**
+- `write.csv()`, `write.table()`
+- `saveRDS()`, `save()`
+
+**readr package:**
+- `write_csv()`, `write_tsv()`, `write_delim()`
+
+**ggplot2 package:**
+- `ggsave()`
+
+**data.table package:**
+- `fwrite()`
+
+**writexl package:**
+- `write_xlsx()`
+
+# Understanding the Output
+
+## Execution Order
+
+The topological sort determines optimal script execution order:
+
+```
+1. 01_load_data.R          # No dependencies
+2. 02_clean_data.R         # Depends on 01
+3. 03_process_data.R       # Depends on 02
+4. 04_analyze_data.R       # Depends on 03
+5. 05_visualize_results.R  # Depends on 04
+```
+
+Scripts are ordered so that:
+- Data is created before it's needed
+- Scripts run in logical sequence
+- Dependencies are always satisfied
+
+## Dependency Graph Interpretation
+
+In the visualization:
+
+- **Nodes** = Scripts
+- **Arrows** = Dependencies (A → B means B needs output from A)
+- **Colors** = Different groups of related scripts
+- **Node size** = Proportional to number of imports/exports
+
+# Tips and Best Practices
+
+## File Path Best Practices
+
+For best results:
+
+1. Use `here::here()` for file paths:
+   ```r
+   data <- read.csv(here::here("data", "raw_data.csv"))
+   ```
+
+2. Avoid dynamic file paths:
+   ```r
+   # This won't be detected
+   filename <- paste0("data_", date, ".csv")
+   data <- read.csv(filename)
+   ```
+
+3. Use consistent path styles within your project
+
+## Workflow Organization
+
+1. **Use numeric prefixes** for script ordering:
+   - `01_load.R`, `02_clean.R`, `03_analyze.R`
+
+2. **Document scripts** with roxygen2 comments:
+   ```r
+   #' @title Load Raw Data
+   #' @author Your Name
+   #' @date 2025-01-16
+   ```
+
+3. **Keep scripts focused** - one main task per script
+
+4. **Avoid circular dependencies** - script A shouldn't depend on B if B depends on A
+
+## Integration with Targets
+
+For reproducible workflows:
+
+1. Generate the targets template:
+   ```r
+   convert_to_targets(analysis)
+   ```
+
+2. Convert scripts to functions
+3. Update target definitions in `_targets.R`
+4. Run the pipeline:
+   ```r
+   library(targets)
+   tar_make()
+   ```
+
+Benefits of targets:
+- Only re-runs changed code
+- Parallel execution of independent tasks
+- Automatic dependency management
+- Reproducible results
+
+# Troubleshooting
+
+## "No dependencies found"
+
+This can happen if:
+- Scripts don't share files
+- File paths aren't using `here::here()`
+- Dynamic file paths are used
+- Imports/exports use unsupported functions
+
+## "Import/export not detected"
+
+The package detects common functions. If using custom or uncommon functions, they won't be detected automatically. Consider:
+- Using standard functions where possible
+- Manually documenting custom I/O in script comments
+
+## "Cycle detected in dependency graph"
+
+This means circular dependencies exist (A → B → C → A). Review your workflow to break the cycle by:
+- Reorganizing script logic
+- Extracting shared operations to a separate script
+- Ensuring dependencies flow in one direction
+
+# Additional Resources
+
+- **Package repository**: [GitHub](https://github.com/SimonDedman/project_dependency_analyser)
+- **Report issues**: [GitHub Issues](https://github.com/SimonDedman/project_dependency_analyser/issues)
+- **targets package**: [targets manual](https://books.ropensci.org/targets/)
+
+# Session Info
+
+```{r sessioninfo}
+sessionInfo()
+```
