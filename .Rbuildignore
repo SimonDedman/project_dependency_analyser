@@ -5,5 +5,4 @@
 ^\.github$
 ^data-raw$
 ^examples$
-^WORKFLOW_QUICKSTART\.md$
-^WORKFLOW_IMPROVEMENTS\.md$
+^docs$
