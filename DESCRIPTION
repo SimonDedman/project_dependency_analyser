@@ -1,0 +1,30 @@
+Package: projectDependencyAnalyser
+Type: Package
+Title: R Project Workflow Analysis and Automation
+Version: 0.1.0
+Date: 2025-01-16
+Authors@R: person("Simon", "Dedman", email = "simondedman@gmail.com", role = c("aut", "cre"))
+Description: Comprehensive toolkit for analyzing R project workflows. Automatically
+    catalogs file dependencies, determines script execution order, creates network
+    visualizations, annotates scripts with dependency information, and converts
+    workflows to the targets package format for automated reproducible pipelines.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+    here,
+    igraph,
+    stringr,
+    dplyr,
+    tidyr,
+    purrr,
+    ggplot2,
+    DiagrammeR,
+    visNetwork
+Suggests:
+    targets,
+    tarchetypes,
+    testthat (>= 3.0.0)
+RoxygenNote: 7.2.0
+URL: https://github.com/SimonDedman/project_dependency_analyser
+BugReports: https://github.com/SimonDedman/project_dependency_analyser/issues

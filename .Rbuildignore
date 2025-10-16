@@ -1,0 +1,9 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^README\.Rmd$
+^LICENSE\.md$
+^\.github$
+^data-raw$
+^examples$
+^WORKFLOW_QUICKSTART\.md$
+^WORKFLOW_IMPROVEMENTS\.md$
